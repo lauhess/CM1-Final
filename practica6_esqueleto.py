@@ -8,81 +8,51 @@ import argparse
 import matplotlib.pyplot as plt
 import numpy as np
 
-
-class LayoutGraph:
-
-    def __init__(self, grafo, iters, refresh, c1, c2, verbose=False):
-        """
-        Parámetros:
-        grafo: grafo en formato lista
-        iters: cantidad de iteraciones a realizar
-        refresh: cada cuántas iteraciones graficar. Si su valor es cero, entonces debe graficarse solo al final.
-        c1: constante de repulsión
-        c2: constante de atracción
-        verbose: si está encendido, activa los comentarios
-        """
-
-        # Guardo el grafo
-        self.grafo = grafo
-
-        # Inicializo estado
-        # Completar
-        self.posiciones = {}
-        self.fuerzas = {}
-
-        # Guardo opciones
-        self.iters = iters
-        self.verbose = verbose
-        # TODO: faltan opciones
-        self.refresh = refresh
-        self.c1 = c1
-        self.c2 = c2
-
-    def layout(self):
-        """
-        Aplica el algoritmo de Fruchtermann-Reingold para obtener (y mostrar)
-        un layout
-        """
-        pass
-
+import parser
+from layout import LayoutGraph
 
 def main():
     # Definimos los argumentos de linea de comando que aceptamos
-    parser = argparse.ArgumentParser()
+    arg_parser = argparse.ArgumentParser()
 
     # Verbosidad, opcional, False por defecto
-    parser.add_argument(
+    arg_parser.add_argument(
         '-v', '--verbose',
         action='store_true',
         help='Muestra mas informacion al correr el programa'
     )
     # Cantidad de iteraciones, opcional, 50 por defecto
-    parser.add_argument(
+    arg_parser.add_argument(
         '--iters',
         type=int,
         help='Cantidad de iteraciones a efectuar',
         default=50
     )
     # Temperatura inicial
-    parser.add_argument(
+    arg_parser.add_argument(
         '--temp',
         type=float,
         help='Temperatura inicial',
         default=100.0
     )
     # Archivo del cual leer el grafo
-    parser.add_argument(
+    arg_parser.add_argument(
         'file_name',
         help='Archivo del cual leer el grafo a dibujar'
     )
 
-    args = parser.parse_args()
+    args = arg_parser.parse_args()
 
     # Descomentar abajo para ver funcionamiento de argparse
     print(args.verbose)
     print(args.iters)
     print(args.file_name)
     print(args.temp)
+
+    grafo = parser.read_graph(args.file_name)
+    layout = LayoutGraph(grafo, iters=args.iters, refresh=1, c1=0.1, c2=5.0, verbose=args.verbose)
+    layout.plot()
+
     return
 
     # # TODO: Borrar antes de la entrega
