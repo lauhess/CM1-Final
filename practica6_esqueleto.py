@@ -5,8 +5,6 @@
 # Ejemplo parseo argumentos
 
 import argparse
-import matplotlib.pyplot as plt
-import numpy as np
 
 import parser
 from layout import LayoutGraph
@@ -51,7 +49,7 @@ def main():
 
     grafo = parser.read_graph(args.file_name)
     layout = LayoutGraph(grafo, iters=args.iters, refresh=1, c1=0.1, c2=5.0, verbose=args.verbose)
-    layout.plot()
+    layout.layout()
 
     return
 

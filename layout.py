@@ -1,8 +1,6 @@
-from random import randint
 import matplotlib.pyplot as plt
-from matplotlib.patches import Circle
+import numpy as np
 
-import vector
 
 class LayoutGraph:
     def __init__(self, grafo, iters, refresh, c1, c2, verbose=False):
@@ -19,133 +17,102 @@ class LayoutGraph:
         # Guardo el grafo
         self.grafo = grafo
         self.cant_vert = len(grafo[0])
+        
 
+        self.vert2idx = {grafo[0][i]:i for i in range(self.cant_vert)}
+        print(self.vert2idx)
         # Inicializo estado
-        self.posiciones = self._init_positions()
+        self.posiciones = np.empty((self.cant_vert, 2)) 
+        self.fuerzas = np.empty((self.cant_vert, 2))
 
         # Guardo opciones
         self.iters = iters
         self.verbose = verbose
-        # TODO: faltan opciones
         self.refresh = refresh
         self.c1 = c1
         self.c2 = c2
-        self.fuerzas = self.fr_v1()
         
         self.plt_fig, self.plt_ax = plt.subplots(subplot_kw={'aspect': 'equal'})
+        self._init_positions()
 
     def layout(self):
         """
         Aplica el algoritmo de Fruchtermann-Reingold para obtener (y mostrar)
         un layout
         """
+        for _ in range(self.iters):
+            self._step()
+            self._draw()
+
+    def _step(self):
+        #_initialize_temperature()
+        self._initialize_accumulators()
+        self._compute_attraction_forces()
+        self._compute_repulsion_forces()
+        #self._compute_gravity_forces()
+        self._update_positions()
+        #_update_temperature()
         pass
     
+    def _idx(self, v):
+        return self.vert2idx[v]
+
     def _init_positions(self):
-        pos = dict()
-        vert = self.grafo[0]
+        self.posiciones = np.random.rand(self.cant_vert, 2)
 
-        for v in vert:
-            x = randint(1, 2 * self.cant_vert)
-            y = randint(1, 2 * self.cant_vert)
-            
-            pos[v] = (x, y)
+    def _get_vertex_pos(self, v):
+        return self.posiciones[self._idx(v)]
 
-        return pos
+    def _initialize_accumulators(self):
+        self.fuerzas = np.zeros((self.cant_vert, 2))
 
-    def plot(self):
-        #for v in self.grafo[0]:
-        #    xy = self.posiciones[v]
-        #    circ = plt.Circle(xy=xy, radius=0.5)
-        #    self.plt_ax.add_patch(circ)
-        #    self.plt_ax.text(x=xy[0], y=xy[1], s=v, horizontalalignment='center', verticalalignment='center')
-        x = [xc for xc, yc in self.posiciones.values()]
-        y = [yc for xc, yc in self.posiciones.values()]
+    def _compute_attraction_forces(self):
+        for (orig, dest) in self.grafo[1]:
+            diff = self._get_vertex_pos(dest) - self._get_vertex_pos(orig)
+            dist = np.linalg.norm(diff)
 
-        plt.scatter(x, y, 1000)
+            mod_f = self.f_attraction(dist, self.c1)
+            f_xy = (mod_f / dist) * diff
+
+            self.fuerzas[self._idx(orig)] += f_xy
+            self.fuerzas[self._idx(dest)] -= f_xy
+
+    def _compute_repulsion_forces(self):
+        for v_i in self.grafo[0]:
+            for v_j in self.grafo[0]:
+                if v_i != v_j:
+                    diff = self._get_vertex_pos(v_j) - self._get_vertex_pos(v_i)
+                    dist = np.linalg.norm(diff)
+
+                    mod_f = self.f_repulsion(dist, self.c2)
+                    f_xy = (mod_f / dist) * diff
+
+                    self.fuerzas[self._idx(v_i)] += f_xy
+                    self.fuerzas[self._idx(v_j)] -= f_xy
+    
+    def _update_positions(self):
+        self.posiciones += self.fuerzas
+
+    def _draw(self):
         for v in self.grafo[0]:
-            xy = self.posiciones[v]
-            self.plt_ax.text(x=xy[0], y=xy[1], s=v, horizontalalignment='center', verticalalignment='center')
+            x, y = self._get_vertex_pos(v) 
+            plt.scatter(x, y, 1000)
 
-        for e in self.grafo[1]:
-            x1, y1 = self.posiciones[e[0]]
-            x2, y2 = self.posiciones[e[1]]
-            plt.plot((x1, x2), (y1, y2), 'gray')
+        for (orig, dest) in self.grafo[1]:
+            p_orig =  self._get_vertex_pos(orig)
+            p_dest =  self._get_vertex_pos(dest)
 
-        self.plt_ax.set_xlim(0, 2*self.cant_vert+1)
-        self.plt_ax.set_ylim(0, 2*self.cant_vert+1)
-
+            x = [p_orig[0], p_dest[0]]
+            y = [p_orig[1], p_dest[1]]
+            plt.plot(x, y, color="gray")
+        
         plt.show()
 
-    def f_attraction(d):
-        return d**2 / k
-    
-    def f_repulsion(d):
-        return k**2 / d
-    
-    def forces_compute(self, v_i, v_j, accum_x, accum_y, force_apply):
-        p_i = self.posiciones[v_i]
-        p_j = self.posiciones[v_j]
-    
-        dist = vector.dist(p_i, p_j)
-        mod_fa = force_apply(dist)
-        
-        fx = mod_fa * (p_j[0] - p_i[0]) / dist
-        fy = mod_fa * (p_j[1] - p_i[1]) / dist
-    
-        accum_x[v_i] += f_x
-        accum_y[v_i] += f_y
-        accum_x[v_j] -= f_x
-        accum_y[v_j] -= f_y
+    @staticmethod
+    def f_attraction(d, k):
+        return (d**2) / k
 
-    def fr_v1(self):
-        accum = dict()
-        for i in range(1, self.iters+1):
-            for v in self.grafo[0]:
-                accum[v] = 0
-
-            for e in self.grafo[1]:
-                p_orig = self.posiciones[e[0]]
-                p_dest = self.posiciones[e[1]]
-                f = vector.dist(p_orig, p_dest)
-
-                accum[e[0]] += f
-                accum[e[1]] -= f
-
-            for v_i in self.grafo[0]:
-                for v_j in self.grafo[0]:
-                    p_i = self.posiciones[v_i]
-                    p_j = self.posiciones[v_j]
-                    if (p_i != p_j):
-                        f = vector.dist(p_i, p_j)
-        
-                        accum[e[0]] += f
-                        accum[e[1]] -= f
-
-        print(accum)
-        return accum
-
-    def fr_v2(self):
-        accum_x = dict()
-        accum_y = dict()
-        for i in range(1, self.iters+1):
-            # Inicializar acumuladores
-            for v in self.grafo[0]:
-                accum_x[v] = 0
-                accum_y[v] = 0
-
-            # Computar fuerzas de attración
-            for e in self.grafo[1]:
-                self.forces_compute(e[0], e[1], accum_x, accum_y, f_attraction)
-
-            # Computar fuerzas de repulsión
-            for v_i in self.grafo[0]:
-                for v_j in self.grafo[1]:
-                    if (v_i != v_j):
-                        self.forces_compute(v_i, v_j, accum_x, accum_y, f_repulsion)
-
-            # Actualizar posiciones
-            for v in self.grafo[0]:
-                p_v = self.posiciones[v]
-                self.posiciones[v] = vector.sum(p_v, (accum_x[v], accum_y[v]))
+    @staticmethod
+    def f_repulsion(d, k):
+        return (k**2) / d
 
