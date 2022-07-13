@@ -37,10 +37,8 @@ class LayoutGraph:
         self.width = width
         self.height = height
 
-        plt.xlim(0, width)
-        plt.ylim(0, height)
-
         self._init_positions()
+        self._draw()
 
     def layout(self):
         """
@@ -62,11 +60,10 @@ class LayoutGraph:
     def _idx(self, v):
         return self.vert2idx[v]
 
-    def _initialize_temperature(self):
-        pass
-
     def _init_positions(self):
         self.posiciones = np.random.rand(self.cant_vert, 2)
+        self.posiciones[:,0] *= self.width
+        self.posiciones[:,1] *= self.height
 
     def _get_vertex_pos(self, v):
         return self.posiciones[self._idx(v)]
@@ -135,7 +132,10 @@ class LayoutGraph:
             x = [p_orig[0], p_dest[0]]
             y = [p_orig[1], p_dest[1]]
             plt.plot(x, y, color="gray")
-        
+
+        plt.xlim(0, self.width)
+        plt.ylim(0, self.height)
+
         plt.draw()
 
     def _update_temperature(self):
