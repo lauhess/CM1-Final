@@ -48,7 +48,7 @@ def main():
     print(args.temp)
 
     grafo = parser.read_graph(args.file_name)
-    layout = LayoutGraph(grafo, iters=args.iters, refresh=1, c1=0.1, c2=5.0, verbose=args.verbose)
+    layout = LayoutGraph(grafo, iters=args.iters, temp=args.temp, refresh=1, c1=0.1, c2=5.0, verbose=args.verbose)
     layout.layout()
 
     return
