@@ -1,3 +1,5 @@
+import sys
+
 def parse_graph(lines):
     num_vert = int(lines[0])
     vert = lines[1:num_vert+1]
@@ -8,8 +10,9 @@ def read_graph(file_path):
     try:
         with open(file_path) as f:
             data = f.read()
-            lines = data.split("\n")
+            lines = data.strip().split("\n")
     except FileNotFoundError:
-        error_quit(f"El archivo {file_path} no existe.")
+        print(f"El archivo {file_path} no existe.")
+        sys.exit(1)
 
     return parse_graph(lines)
