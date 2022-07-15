@@ -1,5 +1,7 @@
+from random import randint
 import matplotlib.pyplot as plt
 import numpy as np
+import math
 
 
 class LayoutGraph:
@@ -30,14 +32,18 @@ class LayoutGraph:
         self.temp = temp
         self.verbose = verbose
         self.refresh = refresh
+
+        # Constantes
         self.c1 = c1    # Constante de atracción
         self.c2 = c2    # Constante de repulsión
         self.c3 = 0.95  # Constante de cambio de temperatura
+        self.epsilon = 2 * math.sqrt(36/math.pi)
         
         self.width = width
         self.height = height
 
         self._init_positions()
+        plt.gca().set_aspect('equal') 
         self._draw()
 
     def layout(self):
@@ -110,6 +116,24 @@ class LayoutGraph:
 
     def _update_positions(self):
         for v in self.grafo[0]:
+            for v_j in self.grafo[0]:
+                if v != v_j:
+                    diff = self._get_vertex_pos(v_j) - self._get_vertex_pos(v)
+                    dist = np.linalg.norm(diff)
+
+                    if (dist < 2 * self.epsilon):
+                        self._logging_alert(f"Alejando {v} de {v_j}", 1)
+                        f_x = randint(math.ceil(self.epsilon), self.width // 8)
+                        f_y = randint(math.ceil(self.epsilon), self.height // 8)
+                        vec_f = np.array([f_x, f_y])
+                        self.posiciones[self._idx(v)] += vec_f
+                        self.posiciones[self._idx(v_j)] -= vec_f
+
+                        if self.verbose:
+                            diff = self._get_vertex_pos(v_j) - self._get_vertex_pos(v)
+                            dist = np.linalg.norm(diff)
+                            self._logging_value(f"Dist {v}-{v_j}", dist, 2)
+
             vec_f = self.fuerzas[self._idx(v)]
             norm_f = np.linalg.norm(vec_f)
             if norm_f > self.temp:
@@ -135,11 +159,23 @@ class LayoutGraph:
 
         plt.xlim(0, self.width)
         plt.ylim(0, self.height)
+        plt.grid(visible=True)
 
         plt.draw()
 
     def _update_temperature(self):
         self.temp *= self.c3
+        self._logging_value("Temperatura", self.temp)
+    
+    def _logging_value(self, var_name, value, indent=0):
+        if self.verbose:
+            ind = '\t' * indent
+            print(f"{ind}[DEBUG] {var_name} = {value}")
+
+    def _logging_alert(self, msg, indent=0):
+        if self.verbose:
+            ind = '\t' * indent
+            print(f"{ind}[WARNING] {msg}")
 
     @staticmethod
     def f_attraction(d, k):
@@ -152,4 +188,6 @@ class LayoutGraph:
     @classmethod
     def f_gravity(cls, d, k):
         return 0.1 * cls.f_attraction(d, k)
+
+    
 
