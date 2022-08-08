@@ -3,6 +3,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import math
 
+PADDING_X = 50
+PADDING_Y = 50
 
 class LayoutGraph:
     def __init__(self, grafo, iters, temp, refresh, c1, c2, verbose=False, width=200, height=200):
@@ -34,13 +36,14 @@ class LayoutGraph:
         self.refresh = refresh
 
         # Constantes
-        self.c1 = c1    # Constante de atracción
-        self.c2 = c2    # Constante de repulsión
         self.c3 = 0.95  # Constante de cambio de temperatura
-        self.epsilon = 2 * math.sqrt(36/math.pi)
+        self.epsilon = 50 
         
         self.width = width
         self.height = height
+        self.dispersion = math.sqrt(self.width * self.height / self.cant_vert) 
+        self.c1 = c1 * self.dispersion
+        self.c2 = c2 * self.dispersion
 
         self._init_positions()
         plt.gca().set_aspect('equal') 
@@ -109,37 +112,47 @@ class LayoutGraph:
             diff = center - pos
             dist = np.linalg.norm(diff)
 
-            mod_f = self.f_gravity(dist, self.c1)
+            mod_f = self.f_gravity(dist, self.c2)
             f_xy = (mod_f / dist) * diff
 
             self.fuerzas[self._idx(v)] += f_xy
 
+    def _prevent_collision(self, v, mod):
+        x, y = self.posiciones[self._idx(v)] + mod
+        if x < PADDING_X:
+            x = PADDING_X
+        elif x > self.width:
+            x = self.width - PADDING_X
+
+        if y < PADDING_Y:
+            y = PADDING_Y
+        elif y > self.height:
+            y = self.height - PADDING_Y
+
+        self.posiciones[self._idx(v)] = np.array([x, y])
+        
     def _update_positions(self):
         for v in self.grafo[0]:
-            for v_j in self.grafo[0]:
-                if v != v_j:
-                    diff = self._get_vertex_pos(v_j) - self._get_vertex_pos(v)
-                    dist = np.linalg.norm(diff)
-
-                    if (dist < 2 * self.epsilon):
-                        self._logging_alert(f"Alejando {v} de {v_j}", 1)
-                        f_x = randint(math.ceil(self.epsilon), self.width // 8)
-                        f_y = randint(math.ceil(self.epsilon), self.height // 8)
-                        vec_f = np.array([f_x, f_y])
-                        self.posiciones[self._idx(v)] += vec_f
-                        self.posiciones[self._idx(v_j)] -= vec_f
-
-                        if self.verbose:
-                            diff = self._get_vertex_pos(v_j) - self._get_vertex_pos(v)
-                            dist = np.linalg.norm(diff)
-                            self._logging_value(f"Dist {v}-{v_j}", dist, 2)
-
             vec_f = self.fuerzas[self._idx(v)]
             norm_f = np.linalg.norm(vec_f)
             if norm_f > self.temp:
                 vec_f = (self.temp / norm_f) * vec_f
                 #self._fuerzas[self._idx(v)] = vec_f
-            self.posiciones[self._idx(v)] += vec_f
+            self._prevent_collision(v, vec_f)
+
+        for v_i in self.grafo[0]:
+            for v_j in self.grafo[0]:
+                if v_i != v_j:
+                    diff = self._get_vertex_pos(v_j) - self._get_vertex_pos(v_i)
+                    dist = np.linalg.norm(diff)
+                    if dist < self.epsilon:
+                        self._logging_alert(f"{v_i} y {v_j} demasiado cerca.")
+                        mod_f = self.f_repulsion(randint(50, self.width // 4), self.c2)
+                        f_xy = (mod_f / dist) * diff
+
+                        self.fuerzas[self._idx(v_i)] += f_xy
+                        self.fuerzas[self._idx(v_j)] -= f_xy
+                        self._update_positions()
 
     def _draw(self, wait=0.2):
         plt.pause(wait)
@@ -147,7 +160,7 @@ class LayoutGraph:
 
         for v in self.grafo[0]:
             x, y = self._get_vertex_pos(v) 
-            plt.scatter(x, y, 1000, c="lightblue")
+            plt.scatter(x, y, 500, c="lightblue")
 
         for (orig, dest) in self.grafo[1]:
             p_orig =  self._get_vertex_pos(orig)
@@ -187,7 +200,7 @@ class LayoutGraph:
     
     @classmethod
     def f_gravity(cls, d, k):
-        return 0.1 * cls.f_attraction(d, k)
+        return 0.1 * cls.f_repulsion(d, k)
 
     
 
