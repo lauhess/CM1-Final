@@ -1,4 +1,4 @@
-from random import randint
+from random import random
 import matplotlib.pyplot as plt
 import numpy as np
 import math
@@ -27,7 +27,7 @@ class LayoutGraph:
 
         # Inicializo estado
         self.posiciones = np.empty((self.cant_vert, 2)) 
-        self.fuerzas = np.empty((self.cant_vert, 2))
+        self.fuerzas = np.zeros((self.cant_vert, 2))
 
         # Guardo opciones
         self.iters = iters
@@ -37,7 +37,7 @@ class LayoutGraph:
 
         # Constantes
         self.c3 = 0.95  # Constante de cambio de temperatura
-        self.epsilon = 50 
+        self.epsilon = 0.01 
         
         self.width = width
         self.height = height
@@ -54,9 +54,15 @@ class LayoutGraph:
         Aplica el algoritmo de Fruchtermann-Reingold para obtener (y mostrar)
         un layout
         """
-        for _ in range(self.iters):
+        for i in range(self.iters):
+            if self.refresh != 0 and i % self.refresh == 0:
+                self._draw()
+            if self.temp < self.epsilon:
+                # self.logger.notify_zero_temperature()
+                break
             self._step()
-            self._draw()
+        self._draw()
+        plt.show()
 
     def _step(self):
         self._initialize_accumulators()
@@ -85,24 +91,36 @@ class LayoutGraph:
             diff = self._get_vertex_pos(dest) - self._get_vertex_pos(orig)
             dist = np.linalg.norm(diff)
 
-            mod_f = self.f_attraction(dist, self.c1)
+            if dist < self.epsilon:
+                self._logging_alert(f"{orig} y {dest} demasiado cerca")
+                return 
+
+            mod_f = self.f_attraction(dist, self.c2)
             f_xy = (mod_f / dist) * diff
 
             self.fuerzas[self._idx(orig)] += f_xy
             self.fuerzas[self._idx(dest)] -= f_xy
 
     def _compute_repulsion_forces(self):
-        for v_i in self.grafo[0]:
+        unused_vertices = list(self.grafo[0])
+
+        while unused_vertices:
+            v_i = unused_vertices.pop()
             for v_j in self.grafo[0]:
                 if v_i != v_j:
                     diff = self._get_vertex_pos(v_j) - self._get_vertex_pos(v_i)
                     dist = np.linalg.norm(diff)
 
-                    mod_f = self.f_repulsion(dist, self.c2)
-                    f_xy = (mod_f / dist) * diff
+                    if dist < self.epsilon:
+                        self._logging_alert(f"{v_i} y {v_j} demasiado cerca. Alejando")
+                        theta = 2 * math.pi * random()
+                        f_xy = np.array([math.cos(theta), math.sin(theta)])
+                    else:
+                        mod_f = self.f_repulsion(dist, self.c1)
+                        f_xy = (mod_f / dist) * diff
 
-                    self.fuerzas[self._idx(v_i)] += f_xy
-                    self.fuerzas[self._idx(v_j)] -= f_xy
+                    self.fuerzas[self._idx(v_i)] -= f_xy
+                    self.fuerzas[self._idx(v_j)] += f_xy
     
     def _compute_gravity_forces(self):
         for v in self.grafo[0]:
@@ -112,22 +130,27 @@ class LayoutGraph:
             diff = center - pos
             dist = np.linalg.norm(diff)
 
-            mod_f = self.f_gravity(dist, self.c2)
+            if dist < self.epsilon:
+                return
+
+            mod_f = self.f_gravity(dist, self.c1)
             f_xy = (mod_f / dist) * diff
 
-            self.fuerzas[self._idx(v)] += f_xy
+            self.fuerzas[self._idx(v)] -= f_xy
 
     def _prevent_collision(self, v, mod):
         x, y = self.posiciones[self._idx(v)] + mod
-        if x < PADDING_X:
-            x = PADDING_X
+        if x < 0 or x > self.width or y < 0 or y > self.height:
+            self._logging_alert(f"{v} fuera de rango ({x}, {y})")
+        if x < 0:
+            x = (-x) % self.width
         elif x > self.width:
-            x = self.width - PADDING_X
+            x = self.width - x % self.width
 
-        if y < PADDING_Y:
-            y = PADDING_Y
+        if y < 0:
+            y = (-y) % self.height
         elif y > self.height:
-            y = self.height - PADDING_Y
+            y = self.height - y % self.height
 
         self.posiciones[self._idx(v)] = np.array([x, y])
         
@@ -139,20 +162,6 @@ class LayoutGraph:
                 vec_f = (self.temp / norm_f) * vec_f
                 #self._fuerzas[self._idx(v)] = vec_f
             self._prevent_collision(v, vec_f)
-
-        for v_i in self.grafo[0]:
-            for v_j in self.grafo[0]:
-                if v_i != v_j:
-                    diff = self._get_vertex_pos(v_j) - self._get_vertex_pos(v_i)
-                    dist = np.linalg.norm(diff)
-                    if dist < self.epsilon:
-                        self._logging_alert(f"{v_i} y {v_j} demasiado cerca.")
-                        mod_f = self.f_repulsion(randint(50, self.width // 4), self.c2)
-                        f_xy = (mod_f / dist) * diff
-
-                        self.fuerzas[self._idx(v_i)] += f_xy
-                        self.fuerzas[self._idx(v_j)] -= f_xy
-                        self._update_positions()
 
     def _draw(self, wait=0.2):
         plt.pause(wait)
@@ -170,8 +179,8 @@ class LayoutGraph:
             y = [p_orig[1], p_dest[1]]
             plt.plot(x, y, color="gray")
 
-        plt.xlim(0, self.width)
-        plt.ylim(0, self.height)
+        plt.xlim(0 - PADDING_X, self.width + PADDING_X)
+        plt.ylim(0 - PADDING_Y, self.height + PADDING_Y)
         plt.grid(visible=True)
 
         plt.draw()
