@@ -7,7 +7,7 @@ PADDING_X = 50
 PADDING_Y = 50
 
 class LayoutGraph:
-    def __init__(self, grafo, iters, temp, refresh, c1, c2, verbose=False, width=200, height=200):
+    def __init__(self, grafo, iters, temp, refresh, c1, c2, verbose=False, width=500, height=500):
         """
         Parámetros:
         grafo: grafo en formato lista
@@ -56,13 +56,38 @@ class LayoutGraph:
         """
         for i in range(self.iters):
             if self.refresh != 0 and i % self.refresh == 0:
+                self._logging_value("Temperatura", self.temp)
                 self._draw()
             if self.temp < self.epsilon:
-                # self.logger.notify_zero_temperature()
+                self._logging_alert("Temperatura muy baja.")
                 break
             self._step()
         self._draw()
         plt.show()
+
+    def _draw(self, wait=0.2):
+        plt.pause(wait)
+        plt.cla()
+
+        for (orig, dest) in self.grafo[1]:
+            p_orig =  self._get_vertex_pos(orig)
+            p_dest =  self._get_vertex_pos(dest)
+
+            x = [p_orig[0], p_dest[0]]
+            y = [p_orig[1], p_dest[1]]
+            plt.plot(x, y, color="gray")
+
+        for v in self.grafo[0]:
+            x, y = self._get_vertex_pos(v) 
+            plt.scatter(x, y, 200, c="lightblue")
+            plt.text(x, y, v)
+
+
+        plt.xlim(0 - PADDING_X // 2, self.width + PADDING_X // 2)
+        plt.ylim(0 - PADDING_Y // 2, self.height + PADDING_Y // 2)
+        plt.grid(visible=True)
+
+        plt.draw()
 
     def _step(self):
         self._initialize_accumulators()
@@ -115,6 +140,7 @@ class LayoutGraph:
                         self._logging_alert(f"{v_i} y {v_j} demasiado cerca. Alejando")
                         theta = 2 * math.pi * random()
                         f_xy = np.array([math.cos(theta), math.sin(theta)])
+                        self._logging_value("Nueva dirección", f_xy, 1)
                     else:
                         mod_f = self.f_repulsion(dist, self.c1)
                         f_xy = (mod_f / dist) * diff
@@ -131,6 +157,7 @@ class LayoutGraph:
             dist = np.linalg.norm(diff)
 
             if dist < self.epsilon:
+                self._logging_alert(f"{v} demasiado cerca del centro. Ignorando")
                 return
 
             mod_f = self.f_gravity(dist, self.c1)
@@ -159,35 +186,15 @@ class LayoutGraph:
             vec_f = self.fuerzas[self._idx(v)]
             norm_f = np.linalg.norm(vec_f)
             if norm_f > self.temp:
+                old = vec_f
                 vec_f = (self.temp / norm_f) * vec_f
+                self._logging_alert(f"Normalizando fuerza: {old} -> {vec_f}") 
                 #self._fuerzas[self._idx(v)] = vec_f
             self._prevent_collision(v, vec_f)
 
-    def _draw(self, wait=0.2):
-        plt.pause(wait)
-        plt.cla()
-
-        for v in self.grafo[0]:
-            x, y = self._get_vertex_pos(v) 
-            plt.scatter(x, y, 500, c="lightblue")
-
-        for (orig, dest) in self.grafo[1]:
-            p_orig =  self._get_vertex_pos(orig)
-            p_dest =  self._get_vertex_pos(dest)
-
-            x = [p_orig[0], p_dest[0]]
-            y = [p_orig[1], p_dest[1]]
-            plt.plot(x, y, color="gray")
-
-        plt.xlim(0 - PADDING_X, self.width + PADDING_X)
-        plt.ylim(0 - PADDING_Y, self.height + PADDING_Y)
-        plt.grid(visible=True)
-
-        plt.draw()
-
+    
     def _update_temperature(self):
         self.temp *= self.c3
-        self._logging_value("Temperatura", self.temp)
     
     def _logging_value(self, var_name, value, indent=0):
         if self.verbose:
